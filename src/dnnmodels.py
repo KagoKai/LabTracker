@@ -30,7 +30,7 @@ class DnnModel(ABC):
             -image: The input image.
             -threshold: The threshold for class confidences of each box.
         Output:
-            -A tuple in the format of (box locations, class confidences) 
+            -An iterable in the format of (box location, class confidence) 
             for every "good" prediction.
         '''
         pass
@@ -92,7 +92,7 @@ class PersonDetector(DnnModel):
         
         boxes_final = []
         confidences_final = []
-        indexes = cv2.dnn.NMSBoxes(boxes, confidences, 0.6, 0.4)
+        indexes = cv2.dnn.NMSBoxes(boxes, confidences, 0.75, 0.4)
         if len(indexes) > 0:
             for i in indexes.flatten():
                 boxes_final.append(boxes[i])
@@ -104,7 +104,7 @@ class PersonDetector(DnnModel):
         for (box, confidence) in net_outputs:
             x, y, w, h = box
             confidence = '{:.2f}'.format(confidence*100)
-            cv2.rectangle(frame, (x,y), (x+w, y+h), (255, 0, 0), 2)
+            cv2.rectangle(frame, (x,y), (x+w, y+h), (0, 0, 255), 2)
             cv2.putText(frame, 'person' + confidence, (x, y+20), cv2.FONT_HERSHEY_PLAIN, 2, (0,0,0), 2)
         return frame
 
@@ -140,13 +140,13 @@ class FaceDetector(DnnModel):
 
                 left, top, right, bottom = bounding_box.astype('int')
                 width = right - left
-                height = top - bottom
+                height = bottom - top
                 boxes.append([left, top, width, height])
                 confidences.append(float(confidence))
                 
         boxes_final = []
         confidences_final = []
-        indexes = cv2.dnn.NMSBoxes(boxes, confidences, 0.6, 0.4)
+        indexes = cv2.dnn.NMSBoxes(boxes, confidences, 0.8, 0.4)
         if len(indexes) > 0:
             for i in indexes.flatten():
                 boxes_final.append(boxes[i])
@@ -157,7 +157,8 @@ class FaceDetector(DnnModel):
     def draw_boxes(self, frame, net_outputs):
         for (box, confidence) in net_outputs:
             x, y, w, h = box
+            confidence = '{:.2f}'.format(confidence*100)
             cv2.rectangle(frame, (x,y), (x+w, y+h), (255, 0, 0), 2)
-            cv2.putText(frame, "person" + confidence, (x, y+20), cv2.FONT_HERSHEY_PLAIN, 2, (0,0,0), 2)
-
+            cv2.putText(frame, "face" + confidence, (x, y+20), cv2.FONT_HERSHEY_PLAIN, 2, (0,0,0), 2)
+        return frame
     
