@@ -22,7 +22,7 @@ class DnnModel(ABC):
         pass
 
     @abstractmethod
-    def infer(self, image, threshold):
+    def detect(self, image, threshold):
         '''
         Get output of the network from input image.
 
@@ -42,7 +42,7 @@ class DnnModel(ABC):
 
             Input parameters: 
                 -frame: Current frame.
-                -net_output: Output of the "infer" method.
+                -net_output: Output of the "detect" method.
             Output:
                 -The frame with necessary information drawn.
         '''
@@ -60,7 +60,7 @@ class PersonDetector(DnnModel):
 
         return [(height, width), blob] 
 
-    def infer(self, image, threshold=0.5):
+    def detect(self, image, threshold=0.5):
         (h,w), blob = self.preprocess(image)
 
         self.net.setInput(blob)
@@ -116,7 +116,7 @@ class FaceDetector(DnnModel):
 
         return [(height, width), blob] 
 
-    def infer(self, image, threshold):
+    def detect(self, image, threshold):
         (h,w), blob = self.preprocess(image)
 
         self.net.setInput(blob)
