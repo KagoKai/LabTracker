@@ -35,7 +35,7 @@ class DnnModel(ABC):
         '''
         pass
 
-    @abstractmethod()
+    @abstractmethod
     def draw_boxes(self, frame, net_outputs):
         '''
             Draw predictions onto the displaying frame after further post-processing.
@@ -50,13 +50,13 @@ class DnnModel(ABC):
 
 class PersonDetector(DnnModel):
     def __init__(self, weight_file, model_file):
-        self.net = cv2.readNet(weight_file, model_file)
+        self.net = cv2.dnn.readNet(weight_file, model_file)
 
     def preprocess(self, image, scale=1.0/255, input_size=(416,416), ch_means=(0,0,0)):
         height, width, _ = image.shape
 
         blob = cv2.dnn.blobFromImage(image, scalefactor=scale, 
-                size=input_size, mean=ch_means, swapRB=True, crop=False) 
+                size=input_size, mean=ch_means, swapRB=True) 
 
         return [(height, width), blob] 
 
@@ -90,33 +90,37 @@ class PersonDetector(DnnModel):
                     boxes.append(box)
                     confidences.append(float(confidence))
         
-        return (boxes, confidences)
+        boxes_final = []
+        confidences_final = []
+        indexes = cv2.dnn.NMSBoxes(boxes, confidences, 0.6, 0.4)
+        if len(indexes) > 0:
+            for i in indexes.flatten():
+                boxes_final.append(boxes[i])
+                confidences_final.append(confidences[i])
+        
+        return zip(boxes_final, confidences_final)
 
     def draw_boxes(self, frame, net_outputs):
-        boxes, confidences = net_outputs
-        indexes = cv2.dnn.NMSboxes(boxes, confidences, 0.6, 0.4)
-        if len(indexes)>0:
-            for i in indexes.flatten():
-                x, y, w, h = boxes[i]
-                confidence = str(round(confidences[i],2))
-
-                cv2.rectangle(frame, (x,y), (x+w, y+h), (255, 0, 0), 2)
-                cv2.putText(frame, "person" + confidence, (x, y+20), cv2.FONT_HERSHEY_PLAIN, 2, (0,0,0), 2)
+        for (box, confidence) in net_outputs:
+            x, y, w, h = box
+            confidence = '{:.2f}'.format(confidence*100)
+            cv2.rectangle(frame, (x,y), (x+w, y+h), (255, 0, 0), 2)
+            cv2.putText(frame, 'person' + confidence, (x, y+20), cv2.FONT_HERSHEY_PLAIN, 2, (0,0,0), 2)
         return frame
 
 class FaceDetector(DnnModel):
     def __init__(self, weight_file, model_file):
-        self.net = cv2.readNet(weight_file, model_file)
+        self.net = cv2.dnn.readNet(weight_file, model_file)
 
     def preprocess(self, image, scale=1.0, input_size=(300,300), ch_means=(104.0, 177.0, 123.0)):
         height, width, _ = image.shape
 
         blob = cv2.dnn.blobFromImage(image, scalefactor=scale, 
-                size=input_size, mean=ch_means, swapRB=True, crop=False) 
+                size=input_size, mean=ch_means, swapRB=True) 
 
         return [(height, width), blob] 
 
-    def detect(self, image, threshold):
+    def detect(self, image, threshold=0.5):
         (h,w), blob = self.preprocess(image)
 
         self.net.setInput(blob)
@@ -126,8 +130,7 @@ class FaceDetector(DnnModel):
                 200: The number of detections.
                 7: [_, _, conf, left(x1), top(y1), right(x2), bottom(y2)]
         '''
-
-        boxes = []
+        boxes = [] 
         confidences = []
 
         for i in range(0, detections.shape[2]):
@@ -140,19 +143,21 @@ class FaceDetector(DnnModel):
                 height = top - bottom
                 boxes.append([left, top, width, height])
                 confidences.append(float(confidence))
-
-        return (boxes, confidences)
+                
+        boxes_final = []
+        confidences_final = []
+        indexes = cv2.dnn.NMSBoxes(boxes, confidences, 0.6, 0.4)
+        if len(indexes) > 0:
+            for i in indexes.flatten():
+                boxes_final.append(boxes[i])
+                confidences_final.append(confidences[i])
+        
+        return zip(boxes_final, confidences_final)
     
     def draw_boxes(self, frame, net_outputs):
-        boxes, confidences = net_outputs
-        indexes = cv2.dnn.NMSboxes(boxes, confidences, 0.6, 0.4)
-        if len(indexes)>0:
-            for i in indexes.flatten():
-                x, y, w, h = boxes[i]
-                #label = str(classes[class_ids[i]])
-                confidence = str(round(confidences[i],2))
-                cv2.rectangle(frame, (x,y), (x+w, y+h), (255, 0, 0), 2)
-                cv2.putText(frame, confidence, (x, y+20), cv2.FONT_HERSHEY_PLAIN, 2, (0,0,0), 2)
-        return frame
+        for (box, confidence) in net_outputs:
+            x, y, w, h = box
+            cv2.rectangle(frame, (x,y), (x+w, y+h), (255, 0, 0), 2)
+            cv2.putText(frame, "person" + confidence, (x, y+20), cv2.FONT_HERSHEY_PLAIN, 2, (0,0,0), 2)
 
     

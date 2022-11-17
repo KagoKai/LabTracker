@@ -29,15 +29,24 @@ if __name__ == '__main__' :
             
         #Frame processing
         people = p_detector.detect(frame)
-        for person in people:
-            boxes = person[0]
-            for box in boxes:
-                x, y, w, h = box
-                person_frame = frame[y : y + h, x : x + w]
-                face = f_detector.detect(person_frame)
-                
+        # for person in people:
+        #     box, _ = person
+        #     x, y, w, h = box
+        #     person_frame = frame[y : y + h, x : x + w]
+        #     face = f_detector.detect(person_frame)
 
-        # Time elapsed
+        frame = p_detector.draw_boxes(frame, people)
 
+        new_frame_time = time.time()
+        fps = 1/(new_frame_time-prev_frame_time)
+        prev_frame_time = new_frame_time
+        fps = int(fps)
+        fps = str(fps)
+
+        cv2.putText(frame, fps, (7, 70), cv2.FONT_HERSHEY_SIMPLEX, 3, (100, 255, 0), 3, cv2.LINE_AA)
+        cv2.imshow("Live", frame)
+
+        if (cv2.waitKey(1) & 0xff==ord('q')):
+            break
 
     cap.release()
