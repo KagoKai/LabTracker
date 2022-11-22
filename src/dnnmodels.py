@@ -32,6 +32,7 @@ class DnnModel(ABC):
         Output:
             -An iterable in the format of (box location, class confidence) 
             for every "good" prediction.
+            Box location:
         '''
         pass
 
