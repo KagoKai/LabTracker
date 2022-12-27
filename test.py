@@ -3,6 +3,8 @@ import time
 
 import cv2
 import numpy as np
+from openni import openni2
+from openni import _openni2 as c_api
 
 from src.dnnmodels import PersonDetector, FaceDetector
 from src.recognizer import Recognizer
@@ -31,8 +33,19 @@ button_pressed = False
 
 if __name__ == '__main__' :
 
-    # Start default camera
-    cap = cv2.VideoCapture(0)
+    # Initialize the depth device 
+    openni2.initialize()    
+    dev = openni2.Device.open_any()
+
+    # Start the depth camera
+    depth_stream = dev.create_depth_stream()
+    depth_stream.set_video_mode(c_api.OniVideoMode(pixelFormat = c_api.OniPixelFormat.ONI_PIXEL_FORMAT_DEPTH_100_UM, 
+                                resolutionX = 640, resolutionY = 480, fps = 30))
+    depth_stream.start()
+
+
+    # Start the default camera
+    cap = cv2.VideoCapture(1)
 
     prev_frame_time = 0
     new_frame_time = 0
@@ -40,19 +53,35 @@ if __name__ == '__main__' :
         ret, frame = cap.read()
         if (ret == False):
             break
-        
+
+        # Grab a new depth frame
+        dframe = depth_stream.read_frame()
+        frame_data = dframe.get_buffer_as_uint16()
+
+        # Convert the depth frame to numpy array
+        dmap = np.frombuffer(frame_data, dtype=np.uint16)
+        dmap.shape = (1, 480, 640)
+        #dmap = np.concatenate((dmap, dmap, dmap), axis=0)
+        dmap = np.swapaxes(dmap, 0, 2)
+        dmap = np.swapaxes(dmap, 0, 1)
+        dmap = np.fliplr(dmap)
+
         if not tracking:
-            #Frame processing
+            # Detect people in the current frame
             people = p_detector.detect(frame)
             for person in people:
                 box, _ = person
                 x1, y1, w, h = box
                 x1, y1, x2, y2 = limited_box(x1, y1, x1 + w, y1 + h,)
+                # Cut the bounding boxs around people (if there's any) into person frames
                 person_frame = frame[y1 : y2, x1 : x2]
                 
+                # Detect the face in the person frames
                 faces = f_detector.detect(person_frame)
                 for face in faces:
                     f_box, _ = face
+                    # Offset by the upperleft corner of the person frame to get the corresponding
+                    # location in the camera frame
                     f_box = [a + b for a, b in zip(f_box, [x1, y1, 0, 0])]
 
                     crop = recognizer.crop_face(frame, f_box)
@@ -70,9 +99,11 @@ if __name__ == '__main__' :
         else:
             ret, (x, y, w, h) = tracker.tracking(frame)
             if ret:
+                depth = dmap[int(y + h/2), int(x + w/2)]
                 cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
+                cv2.putText(frame, f'{depth*100e-6}m', (x, y + 20), cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 0), 2)
             else:
-                cv2.putText(frame, 'ERROR !!!', (200, 20), cv2.FONT_HERSHEY_PLAIN, 10, (0, 0, 255), 4)
+                cv2.putText(frame, 'ERROR !!!', (100, 240), cv2.FONT_HERSHEY_PLAIN, 5, (0, 0, 255), 4)
 
         new_frame_time = time.time()
         fps = 1/(new_frame_time-prev_frame_time)
@@ -80,10 +111,14 @@ if __name__ == '__main__' :
         fps = int(fps)
         fps = str(fps)
 
-        cv2.putText(frame, fps, (7, 70), cv2.FONT_HERSHEY_SIMPLEX, 3, (100, 255, 0), 3, cv2.LINE_AA)
+        cv2.putText(frame, fps, (7, 70), cv2.FONT_HERSHEY_SIMPLEX, 2, (100, 255, 0), 1, cv2.LINE_AA)
         cv2.imshow("Live", frame)
 
+        button_pressed = False
         if (cv2.waitKey(1) & 0xff==ord('q')):
             button_pressed = True
+        
+        if (cv2.waitKey(1) & 0xff==ord('c')):
+            break
 
     cap.release()
