@@ -85,9 +85,9 @@ class PersonDetector(DnnModel):
                 if confidence > threshold:
                     box = detection[:4] * np.array([w, h, w, h])
                     (centerX, centerY, width, height) = box.astype("int")
-                    x = int(centerX - (width / 2))
-                    y = int(centerY - (height / 2))
-                    box = [x, y, int(width), int(height)]
+                    left = int(centerX - (width / 2))
+                    top = int(centerY - (height / 2))
+                    box = [left, top, int(width), int(height)]
                     boxes.append(box)
                     confidences.append(float(confidence))
         
