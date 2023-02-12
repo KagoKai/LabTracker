@@ -39,12 +39,11 @@ frame_width = 640
 frame_height = 480
 
 def main():
-    global x_deviation, y_deviation, tolerance, arr_track_data, button_pressed
+    global x_deviation, y_deviation, tolerance, button_pressed
     #---------------Initialize the devices--------------- 
     openni2.initialize()    
     dev = openni2.Device.open_any()
     global tracking
-
     # Start the depth camera
     depth_stream = dev.create_depth_stream()
     depth_stream.set_video_mode(c_api.OniVideoMode(pixelFormat = c_api.OniPixelFormat.ONI_PIXEL_FORMAT_DEPTH_100_UM, 
@@ -71,11 +70,8 @@ def main():
         # Grab a new depth frame
         dframe = depth_stream.read_frame()
         frame_data = dframe.get_buffer_as_uint16()
-
-        # Convert the depth frame to numpy array
         dmap = np.frombuffer(frame_data, dtype=np.uint16)
         dmap.shape = (1, 480, 640)
-        #dmap = np.concatenate((dmap, dmap, dmap), axis=0)
         dmap = np.swapaxes(dmap, 0, 2)
         dmap = np.swapaxes(dmap, 0, 1)
         dmap = np.fliplr(dmap)
@@ -124,9 +120,9 @@ def main():
                 x_deviation = frame_x_center - obj_x_center
                 y_deviation = frame_y_center - obj_y_center
 
-                #depth = dmap[int(obj_x_center), int(obj_y_center)]
-                #cv2.putText(frame, f'{depth*100e-6}m', (x, y + 20), 
-                            #cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 0), 2)
+                depth = dmap[int(obj_x_center), int(obj_y_center)]
+                cv2.putText(frame, f'{depth*100e-6}m', (x, y + 20), 
+                            cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 0), 2)
 
                 track_data[0] = obj_x_center
                 track_data[1] = obj_y_center
@@ -155,7 +151,8 @@ def main():
     cap.release()
 
 def move_command():
-    global x_deviation, y_deviation, tolerance, arr_track_data
+    #Output direction for the robot, possible value: Stop/Left/Right
+    global x_deviation, y_deviation, tolerance
     speed = 0
 
     if (abs(x_deviation) < tolerance and abs(y_deviation) < tolerance):
@@ -181,7 +178,8 @@ def move_command():
     return cmd, speed
 
 def speed_command(deviation, direction):
-    global x_deviation, y_deviation, tolerance, arr_track_data
+    #Output speed command based on direction and deviation from the frame center point
+    global x_deviation, y_deviation, tolerance
 
     deviation=abs(deviation)
     if (direction == 'fb'):
@@ -210,7 +208,7 @@ def speed_command(deviation, direction):
     return speed
 
 def draw_overlays(image, objs, duration, track_data, tracking):
-    global x_deviation, y_deviation, tolerance, arr_track_data
+    global x_deviation, y_deviation, tolerance
 
     height, width, _ = image.shape
     font = cv2.FONT_HERSHEY_SIMPLEX
